@@ -2140,7 +2140,7 @@ async def admin_get_enhanced_stats(
     # FIXED: shares from transactions (not user table)
     total_shares = await db.execute(
     select(func.coalesce(func.sum(ShareTransaction.shares_count), 0)).filter(
-        func.lower(ShareTransaction.status) == "approved"
+        func.lower(ShareTransaction.status) == "approve"
         )
     )
 
