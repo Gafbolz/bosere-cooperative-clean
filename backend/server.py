@@ -873,8 +873,8 @@ async def get_my_dashboard(
 
         active_loan_data = {
             "id": active_loan.id,
-            "amount": float(active_loan.amount or 0),
-            "total_repayment": float(active_loan.total_repayment or 0),
+            "amount": round(float(active_loan.amount or 0), 2),
+            "total_repayment": round(float(active_loan.total_repayment or 0), 2),
             "total_repaid": round(total_repaid, 2),
             "remaining_balance": round(remaining_balance, 2),
             "status": get_status_value(active_loan.status),
