@@ -1731,7 +1731,7 @@ async def get_shares_balance(
     approved_shares = sum(
         float(t.shares_count or 0)
         for t in transactions
-        if (t.status or "").lower() == "approved"
+        if (t.status or "").lower() == "approve"
     )
 
     total_value = approved_shares * share_unit
