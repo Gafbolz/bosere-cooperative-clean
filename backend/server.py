@@ -1079,32 +1079,35 @@ WHERE id = :cid
     logging.info("[APPROVE] Contribution status updated to APPROVED")
     
         # Create notification
-        notif_id = str(uuid.uuid4())
-        await db.execute(
-            text("""
-                INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at)
-                VALUES (:id, :user_id, :title, :message, :type, :is_read, :created_at)
-            """),
-            {
-                "id": notif_id,
-                "user_id": contribution.user_id,
-                "title": "Contribution Approved!",
-                "message": f"Your contribution of ₦{contribution.amount:,.2f} has been approved and added to your share capital.",
-                "type": "contribution_approved",
-                "is_read": False,
-                "created_at": now
-            }
-        )
-        logging.info(f"[APPROVE] Notification created")
-        
-        await db.commit()
-        logging.info(f"[APPROVE] Transaction committed successfully")
-        return {"success": True}
-        
-    except Exception as e:
-        await db.rollback()
-        logging.error(f"[APPROVE] Failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to approve contribution: {str(e)}")
+    notif_id = str(uuid.uuid4())
+    await db.execute(
+        text("""
+INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at)
+VALUES (:id, :user_id, :title, :message, :type, :is_read, :created_at)
+"""),
+        {
+            "id": notif_id,
+            "user_id": contribution.user_id,
+            "title": "Contribution Approved!",
+            "message": f"Your contribution of ₦{contribution.amount:,.2f} has been approved.",
+            "type": "contribution_approved",
+            "is_read": False,
+            "created_at": now
+        }
+    )
+    logging.info("[APPROVE] Notification created")
+
+    await db.commit()
+    logging.info("[APPROVE] Transaction committed successfully")
+    return {"success": True}
+
+except Exception as e:
+    await db.rollback()
+    logging.error(f"[APPROVE] Failed: {str(e)}")
+    raise HTTPException(
+        status_code=500,
+        detail=f"Failed to approve contribution: {str(e)}"
+    )
 
 @api_router.patch("/admin/contributions/{contribution_id}/reject")
 async def reject_contribution(
