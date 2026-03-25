@@ -1058,8 +1058,8 @@ logging.info(
 )
 
 now = datetime.now(timezone.utc)
-    
-    try:
+
+try:
         # Update contribution status using raw SQL with enum cast
          await db.execute(
            text("""
