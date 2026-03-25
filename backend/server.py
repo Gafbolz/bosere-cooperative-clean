@@ -763,6 +763,34 @@ elif loan.status == "APPROVED":
         payment_date=repayment.payment_date,
         notes=repayment.notes
     )
+@api_router.get("/loans/{loan_id}/repayments", response_model=List[RepaymentResponse])
+async def get_loan_repayments(
+    loan_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get repayment history for a user's loan"""
+
+    result = await db.execute(
+        select(Loan)
+        .options(selectinload(Loan.repayments))
+        .where(and_(Loan.id == loan_id, Loan.user_id == user.id))
+    )
+    loan = result.scalar_one_or_none()
+
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+
+    return [
+        RepaymentResponse(
+            id=r.id,
+            loan_id=r.loan_id,
+            amount=r.amount,
+            payment_date=r.payment_date,
+            notes=r.notes
+        )
+        for r in loan.repayments
+    ]
 
 @api_router.get("/loans/calculator")
 async def loan_calculator(amount: float, duration_months: int, contribution_total: float):
