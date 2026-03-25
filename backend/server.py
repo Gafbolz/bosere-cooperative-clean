@@ -313,7 +313,7 @@ class EnhancedLoanResponse(BaseModel):
 async def verify_supabase_token(authorization: str = Header(None)) -> dict:
     """Verify Supabase JWT token and return user info"""
     if os.getenv("TEST_MODE", "false").lower() == "true":
-       return {"id": "3e5502c1-cc21-4182-b7ab-7060d51e52ff"}
+       return {"id": "3e5502c1-cc21-4182-b7ab-7060d51e52ff" ,"role": "ADMIN"}
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
     
