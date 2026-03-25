@@ -819,20 +819,35 @@ async def get_my_dashboard(
     share_unit_price = await SettingsService.get_float(db, "share_unit")
 
     # Shares
-share_result = await db.execute(
-    select(ShareTransaction)
-    .where(ShareTransaction.user_id == user.id)
-    .order_by(ShareTransaction.created_at.desc())
-)
-share_transactions = share_result.scalars().all()
+    share_result = await db.execute(
+        select(ShareTransaction)
+        .where(ShareTransaction.user_id == user.id)
+        .order_by(ShareTransaction.created_at.desc())
+    )
+    share_transactions = share_result.scalars().all()
 
-shares_balance = sum(
-    float(t.shares_count or 0)
-    for t in share_transactions
-    if (t.status or "").lower() in ["approve", "approved"]
-)
+    shares_balance = sum(
+        float(t.shares_count or 0)
+        for t in share_transactions
+        if (t.status or "").lower() in ["approve", "approved"]
+    )
 
-total_share_value = shares_balance * share_unit_price
+    total_share_value = shares_balance * share_unit_price
+
+    # Active loan
+    loan_result = await db.execute(
+        select(Loan)
+        .options(selectinload(Loan.repayments))
+        .where(
+            and_(
+                Loan.user_id == user.id,
+                enum_text(Loan.status).in_(["APPROVED", "ACTIVE"])
+            )
+        )
+        .order_by(Loan.created_at.desc())
+        .limit(1)
+    )
+    active_loan = loan_result.scalar_one_or_none()
 
     # Active loan
     loan_result = await db.execute(
