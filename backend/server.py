@@ -1041,73 +1041,7 @@ async def approve_contribution(
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    logging.info(f"[APPROVE] Admin {admin.id} approving contribution {contribution_id}")
-     
-    # First check if contribution exists
-result = await db.execute(
-    select(Contribution).where(Contribution.id == contribution_id)
-)
-contribution = result.scalar_one_or_none()
-
-if not contribution:
-    logging.error(f"[APPROVE] Contribution {contribution_id} not found")
-    raise HTTPException(status_code=404, detail="Contribution not found")
-
-logging.info(
-    f"[APPROVE] Found contribution: amount={contribution.amount}, current_status={contribution.status}"
-)
-
-now = datetime.now(timezone.utc)
-
-try:
-        # Update contribution status using raw SQL with enum cast
-    await db.execute(
-        text("""
-UPDATE contributions
-SET status ='APPROVED'::contributionstatus,
-    approved_at = :approved_at,
-    approved_by = :approved_by
-WHERE id = :cid
-"""),
-        {
-            "cid": contribution_id,
-            "approved_at": now,
-            "approved_by": admin.id
-        }
-    )
-
-    logging.info("[APPROVE] Contribution status updated to APPROVED")
-    
-        # Create notification
-    notif_id = str(uuid.uuid4())
-    await db.execute(
-        text("""
-INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at)
-VALUES (:id, :user_id, :title, :message, :type, :is_read, :created_at)
-"""),
-        {
-            "id": notif_id,
-            "user_id": contribution.user_id,
-            "title": "Contribution Approved!",
-            "message": f"Your contribution of ₦{contribution.amount:,.2f} has been approved.",
-            "type": "contribution_approved",
-            "is_read": False,
-            "created_at": now
-        }
-    )
-    logging.info("[APPROVE] Notification created")
-
-    await db.commit()
-    logging.info("[APPROVE] Transaction committed successfully")
-    return {"success": True}
-
-except Exception as e:
-    await db.rollback()
-    logging.error(f"[APPROVE] Failed: {str(e)}")
-    raise HTTPException(
-        status_code=500,
-        detail=f"Failed to approve contribution: {str(e)}"
-    )
+    return {"message": "Approval temporarily disabled"}
 
 @api_router.patch("/admin/contributions/{contribution_id}/reject")
 async def reject_contribution(
