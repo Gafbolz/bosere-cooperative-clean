@@ -1042,20 +1042,22 @@ async def approve_contribution(
     db: AsyncSession = Depends(get_db)
 ):
     logging.info(f"[APPROVE] Admin {admin.id} approving contribution {contribution_id}")
-    
+     
     # First check if contribution exists
-    result = await db.execute(
+result = await db.execute(
     select(Contribution).where(Contribution.id == contribution_id)
 )
 contribution = result.scalar_one_or_none()
-    
-    if not contribution:
-        logging.error(f"[APPROVE] Contribution {contribution_id} not found")
-        raise HTTPException(status_code=404, detail="Contribution not found")
-    
-    logging.info(f"[APPROVE] Found contribution: amount={contribution.amount}, current_status={contribution.status}")
-    
-    now = datetime.now(timezone.utc)
+
+if not contribution:
+    logging.error(f"[APPROVE] Contribution {contribution_id} not found")
+    raise HTTPException(status_code=404, detail="Contribution not found")
+
+logging.info(
+    f"[APPROVE] Found contribution: amount={contribution.amount}, current_status={contribution.status}"
+)
+
+now = datetime.now(timezone.utc)
     
     try:
         # Update contribution status using raw SQL with enum cast
