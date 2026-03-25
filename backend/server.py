@@ -2110,70 +2110,107 @@ async def admin_get_enhanced_stats(
     db: AsyncSession = Depends(get_db)
 ):
     """Admin: Get enhanced dashboard statistics"""
+
     # Basic stats
     total_members = await db.execute(
         select(func.count(User.id)).filter(enum_text(User.role) == "MEMBER")
     )
+
     approved_members = await db.execute(
-        select(func.count(User.id)).filter(enum_text(User.role) == "MEMBER", User.is_approved == True)
+        select(func.count(User.id)).filter(
+            enum_text(User.role) == "MEMBER",
+            User.is_approved == True
+        )
     )
+
     pending_members = await db.execute(
-        select(func.count(User.id)).filter(enum_text(User.role) == "MEMBER", User.is_approved == False)
+        select(func.count(User.id)).filter(
+            enum_text(User.role) == "MEMBER",
+            User.is_approved == False
+        )
     )
-    
+
     # Financial stats
     total_savings = await db.execute(
-        select(func.coalesce(func.sum(User.savings_balance), 0)).filter(enum_text(User.role) == "MEMBER")
+        select(func.coalesce(func.sum(User.savings_balance), 0)).filter(
+            enum_text(User.role) == "MEMBER"
+        )
     )
+
+    # FIXED: shares from transactions (not user table)
     total_shares = await db.execute(
-        select(func.coalesce(func.sum(User.shares_balance), 0)).filter(enum_text(User.role) == "MEMBER")
+        select(func.coalesce(func.sum(ShareTransaction.amount), 0)).filter(
+            func.lower(ShareTransaction.status) == "approved"
+        )
     )
-    
+
     # Loan stats
     pending_loans = await db.execute(
         select(func.count(Loan.id)).filter(enum_text(Loan.status) == "PENDING")
     )
+
     active_loans = await db.execute(
-        select(func.count(Loan.id)).filter(enum_text(Loan.status).in_(["APPROVED", "ACTIVE"]))
+        select(func.count(Loan.id)).filter(
+            enum_text(Loan.status).in_(["APPROVED", "ACTIVE"])
+        )
     )
+
     total_disbursed = await db.execute(
-        select(func.coalesce(func.sum(Loan.amount), 0)).filter(enum_text(Loan.status).in_(["APPROVED", "ACTIVE", "COMPLETED"]))
+        select(func.coalesce(func.sum(Loan.amount), 0)).filter(
+            enum_text(Loan.status).in_(["APPROVED", "ACTIVE", "COMPLETED"])
+        )
     )
-    
-    # Risky loans (overdue)
+
+    # Risky loans
     risky_loans = await db.execute(
         select(func.count(Loan.id)).filter(Loan.days_overdue > 7)
     )
-    
+
     # Contribution stats
     pending_contributions = await db.execute(
-        select(func.count(Contribution.id)).filter(enum_text(Contribution.status) == "PENDING")
+        select(func.count(Contribution.id)).filter(
+            enum_text(Contribution.status) == "PENDING"
+        )
     )
+
     total_contributions = await db.execute(
-        select(func.coalesce(func.sum(Contribution.amount), 0)).filter(enum_text(Contribution.status) == "APPROVED")
+        select(func.coalesce(func.sum(Contribution.amount), 0)).filter(
+            enum_text(Contribution.status) == "APPROVED"
+        )
     )
-    
-    # Liquidity
-    liquidity = await LiquidityService.get_liquidity_status(db)
-    
-    # Next meeting
-    next_meeting = await MeetingService.get_or_create_next_meeting(db)
-    
+
+    # SAFE: avoid crashes from services
+    try:
+        liquidity = await LiquidityService.get_liquidity_status(db)
+    except Exception:
+        liquidity = {
+            "liquidity_ratio": 0,
+            "is_healthy": False
+        }
+
+    try:
+        next_meeting = await MeetingService.get_or_create_next_meeting(db)
+    except Exception:
+        next_meeting = None
+
     return {
-        'total_members': total_members.scalar() or 0,
-        'approved_members': approved_members.scalar() or 0,
-        'pending_members': pending_members.scalar() or 0,
-        'total_savings': total_savings.scalar() or 0,
-        'total_shares': total_shares.scalar() or 0,
-        'total_contributions': total_contributions.scalar() or 0,
-        'pending_contributions_count': pending_contributions.scalar() or 0,
-        'total_loans_disbursed': total_disbursed.scalar() or 0,
-        'pending_loans_count': pending_loans.scalar() or 0,
-        'active_loans_count': active_loans.scalar() or 0,
-        'risky_loans_count': risky_loans.scalar() or 0,
-        'liquidity_ratio': liquidity['liquidity_ratio'],
-        'liquidity_healthy': liquidity['is_healthy'],
-        'next_meeting_date': next_meeting.meeting_date.isoformat() if next_meeting else None
+        "total_members": total_members.scalar() or 0,
+        "approved_members": approved_members.scalar() or 0,
+        "pending_members": pending_members.scalar() or 0,
+        "total_savings": float(total_savings.scalar() or 0),
+        "total_shares": float(total_shares.scalar() or 0),
+        "total_contributions": float(total_contributions.scalar() or 0),
+        "pending_contributions_count": pending_contributions.scalar() or 0,
+        "total_loans_disbursed": float(total_disbursed.scalar() or 0),
+        "pending_loans_count": pending_loans.scalar() or 0,
+        "active_loans_count": active_loans.scalar() or 0,
+        "risky_loans_count": risky_loans.scalar() or 0,
+        "liquidity_ratio": liquidity["liquidity_ratio"],
+        "liquidity_healthy": liquidity["is_healthy"],
+        "next_meeting_date": (
+            next_meeting.meeting_date.isoformat()
+            if next_meeting else None
+        )
     }
 
 # ============ Health Check ============
