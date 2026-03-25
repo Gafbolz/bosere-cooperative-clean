@@ -829,7 +829,7 @@ share_transactions = share_result.scalars().all()
 shares_balance = sum(
     float(t.shares_count or 0)
     for t in share_transactions
-    if (t.status or "").lower() == "approve"
+    if (t.status or "").lower() in ["approve", "approved"]
 )
 
 total_share_value = shares_balance * share_unit_price
