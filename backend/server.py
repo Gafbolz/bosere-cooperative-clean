@@ -738,21 +738,19 @@ async def add_repayment(
 
     loan.total_repaid = total_repaid
 
-remaining = float(loan.total_repayment or 0) - total_repaid
+    remaining = float(loan.total_repayment or 0) - total_repaid
 
-# Fix floating precision issue
-if abs(remaining) < 0.01:
-    remaining = 0
+    if abs(remaining) < 0.01:
+        remaining = 0
 
-loan.remaining_balance = max(0, remaining)
+    loan.remaining_balance = max(0, remaining)
 
-if loan.remaining_balance == 0:
-    loan.status = "COMPLETED"
-    loan.completed_at = datetime.now(timezone.utc)
+    if loan.remaining_balance == 0:
+        loan.status = "COMPLETED"
+        loan.completed_at = datetime.now(timezone.utc)
+    elif loan.status == "APPROVED":
+        loan.status = "ACTIVE"
 
-elif loan.status == "APPROVED":
-    loan.status = "ACTIVE"
-    
     await db.commit()
     await db.refresh(repayment)
 
@@ -763,6 +761,8 @@ elif loan.status == "APPROVED":
         payment_date=repayment.payment_date,
         notes=repayment.notes
     )
+
+
 @api_router.get("/loans/{loan_id}/repayments", response_model=List[RepaymentResponse])
 async def get_loan_repayments(
     loan_id: str,
