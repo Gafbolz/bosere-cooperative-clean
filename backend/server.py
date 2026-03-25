@@ -809,7 +809,111 @@ async def loan_calculator(amount: float, duration_months: int, contribution_tota
     }
 
 # ============ Dashboard Routes ============
+@api_router.get("/dashboard/me")
+async def get_my_dashboard(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get member dashboard summary"""
 
+    share_unit_price = await SettingsService.get_float(db, "share_unit")
+
+    # Shares
+    share_result = await db.execute(
+        select(ShareTransaction)
+        .where(
+            and_(
+                ShareTransaction.user_id == user.id,
+                func.lower(ShareTransaction.status) == "approved"
+            )
+        )
+        .order_by(ShareTransaction.created_at.desc())
+    )
+    share_transactions = share_result.scalars().all()
+
+    shares_balance = sum(float(t.shares_count or 0) for t in share_transactions)
+    total_share_value = shares_balance * share_unit_price
+
+    # Active loan
+    loan_result = await db.execute(
+        select(Loan)
+        .options(selectinload(Loan.repayments))
+        .where(
+            and_(
+                Loan.user_id == user.id,
+                enum_text(Loan.status).in_(["APPROVED", "ACTIVE"])
+            )
+        )
+        .order_by(Loan.created_at.desc())
+        .limit(1)
+    )
+    active_loan = loan_result.scalar_one_or_none()
+
+    active_loan_data = None
+    recent_repayments = []
+
+    if active_loan:
+        total_repaid = float(sum(float(r.amount or 0) for r in active_loan.repayments))
+        remaining_balance = max(0, float(active_loan.total_repayment or 0) - total_repaid)
+
+        active_loan_data = {
+            "id": active_loan.id,
+            "amount": float(active_loan.amount or 0),
+            "total_repayment": float(active_loan.total_repayment or 0),
+            "total_repaid": total_repaid,
+            "remaining_balance": remaining_balance,
+            "status": get_status_value(active_loan.status),
+            "purpose": active_loan.purpose,
+            "created_at": active_loan.created_at.isoformat() if active_loan.created_at else None,
+            "approved_at": active_loan.approved_at.isoformat() if active_loan.approved_at else None
+        }
+
+        recent_repayments = [
+            {
+                "id": r.id,
+                "loan_id": r.loan_id,
+                "amount": float(r.amount or 0),
+                "payment_date": r.payment_date.isoformat() if r.payment_date else None,
+                "notes": r.notes
+            }
+            for r in sorted(
+                active_loan.repayments,
+                key=lambda x: x.payment_date or datetime.min,
+                reverse=True
+            )[:5]
+        ]
+
+    # Notifications
+    notification_result = await db.execute(
+        select(Notification)
+        .where(Notification.user_id == user.id)
+        .order_by(Notification.created_at.desc())
+        .limit(5)
+    )
+    notifications = notification_result.scalars().all()
+
+    recent_notifications = [
+        {
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
+            "type": n.type,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat() if n.created_at else None
+        }
+        for n in notifications
+    ]
+
+    return {
+        "full_name": user.full_name,
+        "savings_balance": float(user.savings_balance or 0),
+        "shares_balance": shares_balance,
+        "share_unit_price": float(share_unit_price or 0),
+        "total_share_value": total_share_value,
+        "active_loan": active_loan_data,
+        "recent_repayments": recent_repayments,
+        "recent_notifications": recent_notifications
+    }
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
     user: User = Depends(get_current_user),
