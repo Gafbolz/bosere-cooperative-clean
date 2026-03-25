@@ -1045,10 +1045,9 @@ async def approve_contribution(
     
     # First check if contribution exists
     result = await db.execute(
-        text("SELECT id, user_id, amount, status FROM contributions WHERE id = :cid"),
-        {"cid": contribution_id}
-    )
-    contribution = result.fetchone()
+    select(Contribution).where(Contribution.id == contribution_id)
+)
+contribution = result.scalar_one_or_none()
     
     if not contribution:
         logging.error(f"[APPROVE] Contribution {contribution_id} not found")
