@@ -712,50 +712,50 @@ async def add_repayment(
     db: AsyncSession = Depends(get_db)
 ):
     """Add a repayment to an active loan"""
+
     result = await db.execute(
         select(Loan)
         .options(selectinload(Loan.repayments))
         .where(and_(Loan.id == loan_id, Loan.user_id == user.id))
     )
     loan = result.scalar_one_or_none()
-    
+
     if not loan:
         raise HTTPException(status_code=404, detail="Loan not found")
-    
+
     if loan.status not in ["APPROVED", "ACTIVE"]:
         raise HTTPException(status_code=400, detail="Loan is not active")
-    
+
     repayment = Repayment(
         loan_id=loan_id,
         amount=data.amount,
         notes=data.notes
     )
-    
+
     db.add(repayment)
 
-# Update loan repayment totals
-total_repaid = sum(float(r.amount or 0) for r in loan.repayments) + float(data.amount or 0)
+    total_repaid = sum(float(r.amount or 0) for r in loan.repayments) + float(data.amount or 0)
 
-loan.total_repaid = total_repaid
-loan.remaining_balance = float(loan.total_repayment or 0) - total_repaid
+    loan.total_repaid = total_repaid
+    loan.remaining_balance = float(loan.total_repayment or 0) - total_repaid
 
-if loan.remaining_balance <= 0:
-    loan.remaining_balance = 0
-    loan.status = "COMPLETED"
-    loan.completed_at = datetime.now(timezone.utc)
-elif loan.status == "APPROVED":
-    loan.status = "ACTIVE"
+    if loan.remaining_balance <= 0:
+        loan.remaining_balance = 0
+        loan.status = "COMPLETED"
+        loan.completed_at = datetime.now(timezone.utc)
+    elif loan.status == "APPROVED":
+        loan.status = "ACTIVE"
 
-await db.commit()
-await db.refresh(repayment)
+    await db.commit()
+    await db.refresh(repayment)
 
-return RepaymentResponse(
-    id=repayment.id,
-    loan_id=repayment.loan_id,
-    amount=repayment.amount,
-    payment_date=repayment.payment_date,
-    notes=repayment.notes
-)
+    return RepaymentResponse(
+        id=repayment.id,
+        loan_id=repayment.loan_id,
+        amount=repayment.amount,
+        payment_date=repayment.payment_date,
+        notes=repayment.notes
+    )
 
 @api_router.get("/loans/calculator")
 async def loan_calculator(amount: float, duration_months: int, contribution_total: float):
