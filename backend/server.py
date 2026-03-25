@@ -1719,7 +1719,7 @@ async def get_shares_balance(
 ):
     """Get user's share balance and history"""
     share_unit = await SettingsService.get_float(db, 'share_unit')
-    
+
     result = await db.execute(
         select(ShareTransaction)
         .filter(ShareTransaction.user_id == user.id)
@@ -1727,11 +1727,19 @@ async def get_shares_balance(
         .limit(10)
     )
     transactions = result.scalars().all()
-    
+
+    approved_shares = sum(
+        float(t.shares_count or 0)
+        for t in transactions
+        if (t.status or "").lower() == "approved"
+    )
+
+    total_value = approved_shares * share_unit
+
     return {
-        'shares_balance': user.shares_balance or 0,
+        'shares_balance': approved_shares,
         'share_unit_price': share_unit,
-        'total_value': (user.shares_balance or 0) * share_unit,
+        'total_value': total_value,
         'recent_transactions': [
             {
                 'id': t.id,
