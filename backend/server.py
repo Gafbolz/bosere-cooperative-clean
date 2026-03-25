@@ -732,29 +732,37 @@ async def add_repayment(
     )
     
     db.add(repayment)
-    
-    # Check if loan is fully repaid
-    total_repaid = sum(r.amount for r in loan.repayments) + data.amount
-    if total_repaid >= loan.total_repayment:
-        loan.status = "COMPLETED"
-        loan.completed_at = datetime.now(timezone.utc)
-        await create_notification(
-            db, user.id,
-            "Loan Fully Repaid!",
-            f"Congratulations! Your loan of ₦{loan.amount:,.2f} has been fully repaid.",
-            "loan_completed"
-        )
-    
-    await db.commit()
-    await db.refresh(repayment)
-    
-    return RepaymentResponse(
-        id=repayment.id,
-        loan_id=repayment.loan_id,
-        amount=repayment.amount,
-        payment_date=repayment.payment_date,
-        notes=repayment.notes
+
+# Update loan repayment totals
+total_repaid = sum(float(r.amount or 0) for r in loan.repayments) + float(data.amount or 0)
+
+loan.total_repaid = total_repaid
+loan.remaining_balance = float(loan.total_repayment or 0) - total_repaid
+
+if loan.remaining_balance <= 0:
+    loan.remaining_balance = 0
+    loan.status = "COMPLETED"
+    loan.completed_at = datetime.now(timezone.utc)
+    await create_notification(
+        db,
+        user.id,
+        "Loan Fully Repaid!",
+        f"Congratulations! Your loan of ₦{loan.amount:,.2f} has been fully repaid.",
+        "loan_completed"
     )
+elif loan.status == "APPROVED":
+    loan.status = "ACTIVE"
+
+await db.commit()
+await db.refresh(repayment)
+
+return RepaymentResponse(
+    id=repayment.id,
+    loan_id=repayment.loan_id,
+    amount=repayment.amount,
+    payment_date=repayment.payment_date,
+    notes=repayment.notes
+)
 
 @api_router.get("/loans/calculator")
 async def loan_calculator(amount: float, duration_months: int, contribution_total: float):
