@@ -1059,10 +1059,11 @@ contribution = result.scalar_one_or_none()
     
     try:
         # Update contribution status using raw SQL with enum cast
-        await db.execute(
-    text("""
+         await db.execute(
+           text("""
 UPDATE contributions
-SET status = 'APPROVED'::contributionstatus,
+SET status =
+ 'APPROVED'::contributionstatus,
     approved_at = :approved_at,
     approved_by = :approved_by
 WHERE id = :cid
@@ -1072,8 +1073,8 @@ WHERE id = :cid
         "approved_at": now,
         "approved_by": admin.id
     }
-        )
-        logging.info(f"[APPROVE] Contribution status updated to APPROVED")
+       )
+       logging.info(f"[APPROVE] Contribution status updated to APPROVED")
         
         # Create notification
         notif_id = str(uuid.uuid4())
