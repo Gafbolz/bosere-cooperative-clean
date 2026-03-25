@@ -1064,8 +1064,7 @@ try:
     await db.execute(
         text("""
 UPDATE contributions
-SET status =
-'APPROVED'::contributionstatus,
+SET status ='APPROVED'::contributionstatus,
     approved_at = :approved_at,
     approved_by = :approved_by
 WHERE id = :cid
