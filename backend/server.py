@@ -737,15 +737,22 @@ async def add_repayment(
     total_repaid = sum(float(r.amount or 0) for r in loan.repayments) + float(data.amount or 0)
 
     loan.total_repaid = total_repaid
-    loan.remaining_balance = float(loan.total_repayment or 0) - total_repaid
 
-    if loan.remaining_balance <= 0:
-        loan.remaining_balance = 0
-        loan.status = "COMPLETED"
-        loan.completed_at = datetime.now(timezone.utc)
-    elif loan.status == "APPROVED":
-        loan.status = "ACTIVE"
+remaining = float(loan.total_repayment or 0) - total_repaid
 
+# Fix floating precision issue
+if abs(remaining) < 0.01:
+    remaining = 0
+
+loan.remaining_balance = max(0, remaining)
+
+if loan.remaining_balance == 0:
+    loan.status = "COMPLETED"
+    loan.completed_at = datetime.now(timezone.utc)
+
+elif loan.status == "APPROVED":
+    loan.status = "ACTIVE"
+    
     await db.commit()
     await db.refresh(repayment)
 
