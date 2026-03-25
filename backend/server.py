@@ -743,13 +743,6 @@ if loan.remaining_balance <= 0:
     loan.remaining_balance = 0
     loan.status = "COMPLETED"
     loan.completed_at = datetime.now(timezone.utc)
-    await create_notification(
-        db,
-        user.id,
-        "Loan Fully Repaid!",
-        f"Congratulations! Your loan of ₦{loan.amount:,.2f} has been fully repaid.",
-        "loan_completed"
-    )
 elif loan.status == "APPROVED":
     loan.status = "ACTIVE"
 
