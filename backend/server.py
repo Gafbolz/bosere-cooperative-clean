@@ -819,20 +819,20 @@ async def get_my_dashboard(
     share_unit_price = await SettingsService.get_float(db, "share_unit")
 
     # Shares
-    share_result = await db.execute(
-        select(ShareTransaction)
-        .where(
-            and_(
-                ShareTransaction.user_id == user.id,
-                func.lower(ShareTransaction.status) == "approved"
-            )
-        )
-        .order_by(ShareTransaction.created_at.desc())
-    )
-    share_transactions = share_result.scalars().all()
+share_result = await db.execute(
+    select(ShareTransaction)
+    .where(ShareTransaction.user_id == user.id)
+    .order_by(ShareTransaction.created_at.desc())
+)
+share_transactions = share_result.scalars().all()
 
-    shares_balance = sum(float(t.shares_count or 0) for t in share_transactions)
-    total_share_value = shares_balance * share_unit_price
+shares_balance = sum(
+    float(t.shares_count or 0)
+    for t in share_transactions
+    if (t.status or "").lower() == "approve"
+)
+
+total_share_value = shares_balance * share_unit_price
 
     # Active loan
     loan_result = await db.execute(
